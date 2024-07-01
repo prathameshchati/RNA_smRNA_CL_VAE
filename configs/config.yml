@@ -1,0 +1,18 @@
+inputs:
+  filepath: TCGA_Data/adata_objects/rnaseq_adata_object_form.h5ad
+  model_name: RNAseq_AE_model
+  output_dir: Models/RNAseq_AE_model
+preprocessing:
+  filter_low_features: None 
+  min_max_scaling: False
+  isolate_top_genes: None
+model:
+  hidden_dims: [400,300,200,100]
+  latent_dim: 50
+  epochs: 100
+  batch_size: 100
+  learning_rate: 0.001
+  save_model: False
+
+
+
