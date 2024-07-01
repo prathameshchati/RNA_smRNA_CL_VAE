@@ -1,34 +1,13 @@
-import os
 import numpy as np
 import pandas as pd
-import anndata as ad
-import h5py
-import json
-import jax
-import scipy.sparse as sp
-from scipy.sparse import csr_matrix, hstack, vstack
+from scipy.stats import pearsonr, spearmanr
 import tqdm as tqdm
-import requests
-from collections import Counter
-import scvi
-import tempfile
-import scanpy as sc
 import seaborn as sns
 import torch
 from torch.utils.data import DataLoader, TensorDataset, random_split
 from torch import nn
-import gzip
-import pooch
-import tempfile
-from pathlib import Path
-from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
-import umap
-from scipy.stats import chisquare, kstest
-import logging
 import torch.nn.functional as F
-
-
 
 # load data
 def get_X_matrix(adata, scale_data=False):
@@ -70,7 +49,6 @@ def split_dataset(X, X_raw=None, validation_split=0.2, test_split=0.1, batch_siz
     test_loader=DataLoader(test_data, batch_size=batch_size, shuffle=False)
     
     return train_loader, val_loader, test_loader, train_data, val_data, test_data
-
 
 # vae
 class modded_vae(nn.Module):
@@ -329,3 +307,94 @@ def compute_reconstruction_error(model, dataloader):
                 reconstruction_errors.append(error)
 
     return reconstruction_errors
+
+# validation functions 
+def ccc(x,y):
+    sxy = np.sum((x - x.mean())*(y - y.mean()))/x.shape[0]
+    rhoc = 2*sxy / (np.var(x) + np.var(y) + (x.mean() - y.mean())**2)
+    return rhoc
+
+def lins_ccc(y_true, y_pred):
+
+    mean_true = torch.mean(y_true)
+    mean_pred = torch.mean(y_pred)
+    var_true = torch.var(y_true)
+    var_pred = torch.var(y_pred)
+    covar = torch.mean((y_true - mean_true) * (y_pred - mean_pred))
+    
+    pearson_corr = covar / (torch.sqrt(var_true) * torch.sqrt(var_pred))
+    ccc = (2 * pearson_corr * torch.sqrt(var_true) * torch.sqrt(var_pred)) / (var_true + var_pred + (mean_true - mean_pred)**2)
+    ccc=float(ccc)
+    
+    return ccc
+
+def recon_corr(dataset, recons):
+    spear_corr_list=[]
+    pear_corr_list=[]
+    ccc_list=[]
+    for (data, raw_data), recon in zip(dataset, recons):
+        spear_corr, spear_p=spearmanr(data, recon) # data and raw_data or recon
+        pear_corr, pear_p=pearsonr(data, recon) # data and raw_data or recon
+        # ccc_corr=ccc(data, recon)
+        ccc_corr=lins_ccc(data, recon)
+        spear_corr_list.append(spear_corr)
+        pear_corr_list.append(pear_corr)
+        ccc_list.append(ccc_corr)
+    return spear_corr_list, pear_corr_list, ccc_list
+
+
+# mae
+def compute_mae(y_true, y_pred):
+    return torch.mean(torch.abs(y_true - y_pred)).item()
+
+def calculate_mae_list(input_tensor, reconstructed_tensor):
+    mae_list = []
+    for i in range(len(input_tensor)):
+        y_true = input_tensor[i][0]  # relative to norm data
+        y_pred = reconstructed_tensor[i]
+        mae = compute_mae(y_true, y_pred)
+        mae_list.append(mae)
+    return mae_list
+
+def select_and_plot_samples(correlation_list, input_tensor, reconstructed_tensor, tb_N=5, nrows=2, ncols=5, save=False, output_path=None, filename='corr_plots.png'):
+    """
+    Selects the top and bottom N samples based on correlation and plots them.
+    
+    Parameters:
+    correlation_list: list
+        List of correlation values (Pearson, Spearman, or CCC).
+    input_tensor: torch.utils.data.TensorDataset
+        Original input data tensor (paired data).
+    reconstructed_tensor: torch.Tensor
+        Reconstructed data tensor.
+    tb_N: int
+        Number of top and bottom correlated samples to select.
+    nrows: int
+        Number of rows in the grid plot.
+    ncols: int
+        Number of columns in the grid plot.
+    """
+    correlation_array = np.array(correlation_list)
+    
+    # get the indices for the top N and bottom N samples
+    top_indices = np.argsort(correlation_array)[-tb_N:]
+    bottom_indices = np.argsort(correlation_array)[:tb_N]
+    selected_indices = np.concatenate((top_indices, bottom_indices))
+    
+    # top samples
+    selected_input = torch.stack([input_tensor[i][0] for i in selected_indices]) # index 0 to choose normalized data, index 1 to choose raw data
+    selected_reconstructed = reconstructed_tensor[selected_indices]
+    
+    # plotting
+    plt.figure(figsize=(15, 7)) # was 15 by 10 but let to rectangualar plots
+    for i, idx in enumerate(selected_indices):
+        plt.subplot(nrows, ncols, i + 1)
+        sns.scatterplot(x=selected_input[i].numpy(), y=selected_reconstructed[i].numpy(), s=10)
+        plt.xlabel('True')
+        plt.ylabel('Reconstructed')
+        plt.title(f'Sample {idx} - Correlation: {correlation_array[idx]:.2f}')
+    plt.tight_layout()
+    # plt.show()
+
+    if save:
+        plt.savefig(f"{output_path}/{filename}", dpi=300)

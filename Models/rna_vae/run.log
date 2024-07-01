@@ -1,0 +1,28 @@
+[2024-07-01 20:24:07] inputs:
+[2024-07-01 20:24:07]   data: ../smRNA/TCGA_Data/adata_objects/rnaseq_adata_object_form.h5ad
+[2024-07-01 20:24:07]   model_name: rna_vae
+[2024-07-01 20:24:07]   output_dir: Models
+[2024-07-01 20:24:07] preprocessing:
+[2024-07-01 20:24:07]   filter_genes_threshold: 0.8
+[2024-07-01 20:24:07]   norm_per_sample: True
+[2024-07-01 20:24:07]   log: True
+[2024-07-01 20:24:07]   isolate_top: True
+[2024-07-01 20:24:07]   N: 10000
+[2024-07-01 20:24:07] model:
+[2024-07-01 20:24:07]   hidden_dims:
+[2024-07-01 20:24:07]     - 128
+[2024-07-01 20:24:07]   latent_dim: 12
+[2024-07-01 20:24:07]   epochs: 10
+[2024-07-01 20:24:07]   validation_split: 0.2
+[2024-07-01 20:24:07]   test_split: 0.1
+[2024-07-01 20:24:07]   batch_size: 32
+[2024-07-01 20:24:07]   learning_rate: 0.001
+[2024-07-01 20:24:07]   loss_type: mse
+[2024-07-01 20:24:07]   save_model: False
+[2024-07-01 20:24:07] Config loading and parsing executed in 0.0028 seconds
+[2024-07-01 20:24:07] Reading input data executed in 0.5303 seconds
+[2024-07-01 20:24:10] Preprocessing data executed in 2.4819 seconds
+[2024-07-01 20:24:10] Loading data executed in 0.0348 seconds
+[2024-07-01 20:24:10] Initializing model executed in 0.0172 seconds
+[2024-07-01 20:24:11] Training model executed in 1.2498 seconds
+[2024-07-01 20:24:13] Testing model executed in 2.4360 seconds

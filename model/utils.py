@@ -4,6 +4,8 @@ import time
 from functools import wraps
 from colorama import init, Fore, Style
 
+# logging
+from _logger import set_log_file, console_print, console_print_bold, save_log
 
 # printing
 # def console_out(message):
@@ -11,17 +13,17 @@ from colorama import init, Fore, Style
 
 # formatted print
 # colorama init
-init(autoreset=True)
+# init(autoreset=True)
 
-def console_print(message, bold=False):
-    timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
-    if bold:
-        print(f"{Style.BRIGHT}[{timestamp}] {message}{Style.RESET_ALL}")
-    else:
-        print(f"[{timestamp}] {message}")
+# def console_print(message, bold=False):
+#     timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+#     if bold:
+#         print(f"{Style.BRIGHT}[{timestamp}] {message}{Style.RESET_ALL}")
+#     else:
+#         print(f"[{timestamp}] {message}")
 
-def console_print_bold(message):
-    console_print(message, bold=True)
+# def console_print_bold(message):
+#     console_print(message, bold=True)
 
 # load config
 def load_config(filepath):

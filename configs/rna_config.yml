@@ -11,7 +11,7 @@ preprocessing:
 model:
   hidden_dims: [128]
   latent_dim: 12
-  epochs: 300
+  epochs: 10
   validation_split: 0.2
   test_split: 0.1
   batch_size: 32
