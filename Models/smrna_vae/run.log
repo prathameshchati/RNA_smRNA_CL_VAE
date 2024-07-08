@@ -1,0 +1,28 @@
+[2024-07-08 21:41:45] inputs:
+[2024-07-08 21:41:45]   data: ../smRNA/TCGA_Data/adata_objects/smrna_adata_object_form.h5ad
+[2024-07-08 21:41:45]   model_name: smrna_vae
+[2024-07-08 21:41:45]   output_dir: Models
+[2024-07-08 21:41:45] preprocessing:
+[2024-07-08 21:41:45]   filter_genes_threshold: 0.5
+[2024-07-08 21:41:45]   norm_per_sample: True
+[2024-07-08 21:41:45]   log: True
+[2024-07-08 21:41:45]   isolate_top: True
+[2024-07-08 21:41:45]   N: 10000
+[2024-07-08 21:41:45] model:
+[2024-07-08 21:41:45]   hidden_dims:
+[2024-07-08 21:41:45]     - 128
+[2024-07-08 21:41:45]   latent_dim: 12
+[2024-07-08 21:41:45]   epochs: 400
+[2024-07-08 21:41:45]   validation_split: 0.2
+[2024-07-08 21:41:45]   test_split: 0.1
+[2024-07-08 21:41:45]   batch_size: 32
+[2024-07-08 21:41:45]   learning_rate: 0.001
+[2024-07-08 21:41:45]   loss_type: mse
+[2024-07-08 21:41:45]   save_model: False
+[2024-07-08 21:41:45] Config loading and parsing executed in 0.0027 seconds
+[2024-07-08 21:43:01] Reading input data executed in 75.4830 seconds
+[2024-07-08 21:43:07] Preprocessing data executed in 6.1362 seconds
+[2024-07-08 21:43:07] Loading data executed in 0.0307 seconds
+[2024-07-08 21:43:07] Initializing model executed in 0.0172 seconds
+[2024-07-08 21:43:49] Training model executed in 42.3989 seconds
+[2024-07-08 21:43:53] Testing model executed in 3.8790 seconds

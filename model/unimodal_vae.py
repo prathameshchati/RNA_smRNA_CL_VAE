@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader, TensorDataset, random_split
 from torch import nn
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
+import json
 
 # load data
 def get_X_matrix(adata, scale_data=False):
@@ -59,11 +60,22 @@ class modded_vae(nn.Module):
         self.loss_type = loss_type
         
         # encoder constructor
+        """
+        Notes:
+
+        - Exclude dropout in decoder layers; shows improved performance and may help generative properties of the VAE. Potentially remove the last dropout layer from encoder.
+        - Tune dropout_rate and other HPs w/ optuna.
+    
+        """
+        dropout_rate=0.15 # around 0.15 to 0.2 works well 
+
         encoder_layers = []
         prev_dim = input_dim
         for h_dim in hidden_dims:
             encoder_layers.append(nn.Linear(prev_dim, h_dim))
-            encoder_layers.append(nn.ReLU())
+            encoder_layers.append(nn.Dropout(dropout_rate)) # dropout added - only dropout layer
+            encoder_layers.append(nn.ReLU()) # experiment with ELU and other activation functions
+            # encoder_layers.append(nn.Dropout(dropout_rate)) # dropout added - remove here
             prev_dim = h_dim
 
         self.encoder = nn.Sequential(*encoder_layers)
@@ -78,6 +90,7 @@ class modded_vae(nn.Module):
         for h_dim in reversed(hidden_dims):
             decoder_layers.append(nn.Linear(prev_dim, h_dim))
             decoder_layers.append(nn.Softplus())
+            # decoder_layers.append(nn.Dropout(dropout_rate)) # dropout added after softplus, recon is still a final linear layer in the line below
             prev_dim = h_dim
         self.decoder = nn.Sequential(*decoder_layers)
 
@@ -215,8 +228,9 @@ def vae_loss(recon_x, x, mu, logvar, loss_type='mse', kl_weight=1.0, nb_theta=No
 def train_vae(model, dataloader, optimizer, epochs, with_validation=False, val_loader=None): # loss_func="negbin"
     per_epoch_avg_loss={}
     per_epoch_val_avg_loss={}
-    model.train() 
+    # model.train() 
     for epoch in range(epochs):
+        model.train() # model train moved to inside loop
         total_loss = 0
         for batch_idx, (data, raw_data) in enumerate(dataloader):
             data = data.to(next(model.parameters()).device)  
@@ -356,9 +370,52 @@ def calculate_mae_list(input_tensor, reconstructed_tensor):
         mae_list.append(mae)
     return mae_list
 
+# def select_and_plot_samples(correlation_list, input_tensor, reconstructed_tensor, tb_N=5, nrows=2, ncols=5, save=False, output_path=None, filename='corr_plots.png'):
+#     """
+#     Selects the top and bottom N samples based on correlation and plots them.
+    
+#     Parameters:
+#     correlation_list: list
+#         List of correlation values (Pearson, Spearman, or CCC).
+#     input_tensor: torch.utils.data.TensorDataset
+#         Original input data tensor (paired data).
+#     reconstructed_tensor: torch.Tensor
+#         Reconstructed data tensor.
+#     tb_N: int
+#         Number of top and bottom correlated samples to select.
+#     nrows: int
+#         Number of rows in the grid plot.
+#     ncols: int
+#         Number of columns in the grid plot.
+#     """
+#     correlation_array = np.array(correlation_list)
+    
+#     # get the indices for the top N and bottom N samples
+#     top_indices = np.argsort(correlation_array)[-tb_N:]
+#     bottom_indices = np.argsort(correlation_array)[:tb_N]
+#     selected_indices = np.concatenate((top_indices, bottom_indices))
+    
+#     # top samples
+#     selected_input = torch.stack([input_tensor[i][0] for i in selected_indices]) # index 0 to choose normalized data, index 1 to choose raw data
+#     selected_reconstructed = reconstructed_tensor[selected_indices]
+    
+#     # plotting
+#     plt.figure(figsize=(15, 7)) # was 15 by 10 but let to rectangualar plots
+#     for i, idx in enumerate(selected_indices):
+#         plt.subplot(nrows, ncols, i + 1)
+#         sns.scatterplot(x=selected_input[i].numpy(), y=selected_reconstructed[i].numpy(), s=10)
+#         plt.xlabel('True')
+#         plt.ylabel('Reconstructed')
+#         plt.title(f'Sample {idx} - Correlation: {correlation_array[idx]:.2f}')
+#     plt.tight_layout()
+#     # plt.show()
+
+#     if save:
+#         plt.savefig(f"{output_path}/{filename}", dpi=300)
+
 def select_and_plot_samples(correlation_list, input_tensor, reconstructed_tensor, tb_N=5, nrows=2, ncols=5, save=False, output_path=None, filename='corr_plots.png'):
     """
-    Selects the top and bottom N samples based on correlation and plots them.
+    Selects the top and bottom N samples based on correlation and plots them in a journal-style format.
     
     Parameters:
     correlation_list: list
@@ -367,7 +424,7 @@ def select_and_plot_samples(correlation_list, input_tensor, reconstructed_tensor
         Original input data tensor (paired data).
     reconstructed_tensor: torch.Tensor
         Reconstructed data tensor.
-    tb_N: int
+    N: int
         Number of top and bottom correlated samples to select.
     nrows: int
         Number of rows in the grid plot.
@@ -376,25 +433,165 @@ def select_and_plot_samples(correlation_list, input_tensor, reconstructed_tensor
     """
     correlation_array = np.array(correlation_list)
     
-    # get the indices for the top N and bottom N samples
     top_indices = np.argsort(correlation_array)[-tb_N:]
     bottom_indices = np.argsort(correlation_array)[:tb_N]
     selected_indices = np.concatenate((top_indices, bottom_indices))
     
-    # top samples
-    selected_input = torch.stack([input_tensor[i][0] for i in selected_indices]) # index 0 to choose normalized data, index 1 to choose raw data
+    selected_input = torch.stack([input_tensor[i][0] for i in selected_indices])
     selected_reconstructed = reconstructed_tensor[selected_indices]
     
-    # plotting
-    plt.figure(figsize=(15, 7)) # was 15 by 10 but let to rectangualar plots
+    fig, axes = plt.subplots(nrows, ncols, figsize=(15, 7), squeeze=False)
+    
     for i, idx in enumerate(selected_indices):
-        plt.subplot(nrows, ncols, i + 1)
-        sns.scatterplot(x=selected_input[i].numpy(), y=selected_reconstructed[i].numpy(), s=10)
-        plt.xlabel('True')
-        plt.ylabel('Reconstructed')
-        plt.title(f'Sample {idx} - Correlation: {correlation_array[idx]:.2f}')
+        row = i // ncols
+        col = i % ncols
+        ax = axes[row, col]
+        
+        max_val = max(selected_input[i].max(), selected_reconstructed[i].max())
+        ax.plot([0, max_val], [0, max_val], 'k--', alpha=0.75, zorder=2)
+        
+        ax.scatter(selected_input[i].numpy(), selected_reconstructed[i].numpy(), 
+                   s=30, alpha=0.7, color='#7fbfff', edgecolor='#4c7399', linewidth=0.5, zorder=1)
+        
+        ax.set_xlabel('True', fontsize=10)
+        ax.set_ylabel('Reconstructed', fontsize=10)
+        ax.set_title(f'Sample {idx}\nCorr: {correlation_array[idx]:.2f}', fontsize=12)
+        
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        
+        ax.tick_params(axis='both', which='major', labelsize=8)
+        
+        ax.set_aspect('equal', 'box')
+        
+        ax.set_xlim(0, max_val)
+        ax.set_ylim(0, max_val)
+    
     plt.tight_layout()
+    plt.subplots_adjust(hspace=0.4, wspace=0.3)
+    
     # plt.show()
-
     if save:
         plt.savefig(f"{output_path}/{filename}", dpi=300)
+
+def plot_journal_histogram(data, title, bins=30, color='#4c72b0', figsize=(8, 6), save=False, output_path=None, filename='histogram.png'):
+    """
+    Plot a histogram with journal-style formatting.
+
+    Parameters:
+    data (list or numpy array): The data to plot.
+    title (str): The title of the histogram.
+    bins (int): Number of bins in the histogram (default: 30).
+    color (str): Color of the histogram bars (default: '#4c72b0').
+    figsize (tuple): Figure size (width, height) in inches (default: (8, 6)).
+    """
+    plt.figure(figsize=figsize)
+    
+    sns.set_style("ticks")
+    
+    sns.histplot(data, bins=bins, color=color, kde=True, edgecolor='black')
+    
+    plt.title(title, fontsize=24, fontweight='bold', pad=20)
+    # plt.xlabel('Value', fontsize=20)
+    # plt.ylabel('Frequency', fontsize=20)
+    
+    sns.despine()
+    
+    plt.tick_params(axis='both', which='major', labelsize=20)
+    
+    # plt.grid(axis='y', linestyle='--', alpha=0.7)
+    
+    plt.tight_layout()
+    
+    if save:
+        plt.savefig(f"{output_path}/{filename}", dpi=300)
+
+# plot loss and validation
+def plot_and_save_loss_wt_val(loss_dict, val_loss_dict, plot_filename, dict_filename, val_filename, save=False, output_path=None):
+    """
+    Plots the average loss per epoch and saves the figure and the associated dictionary.
+
+    Parameters:
+    loss_dict (dict): Dictionary with epoch as the key and average loss as the value.
+    plot_filename (str): Filename to save the plot (e.g., 'loss_plot.png').
+    dict_filename (str): Filename to save the dictionary (e.g., 'loss_dict.json').
+
+    Returns:
+    None
+    """
+    # Plot the average loss per epoch
+    epochs = list(loss_dict.keys())
+    losses = list(loss_dict.values())
+
+    val_epochs = list(val_loss_dict.keys())
+    val_losses = list(val_loss_dict.values())
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(epochs, losses, linestyle='-', color='black', label='Train')
+    plt.plot(val_epochs, val_losses, linestyle='-', color='orange', label='Val')
+    plt.xlabel('Epoch')
+    plt.ylabel('Average Loss')
+    plt.title('Average loss per epoch')
+    plt.grid(True)
+    plt.legend()
+    # plt.close()
+
+    if save:
+        plt.savefig(f"{output_path}/{plot_filename}")
+
+        # Save the dictionary to a JSON file
+        with open(f"{output_path}/{dict_filename}", 'w') as f:
+            json.dump(loss_dict, f, indent=4)
+
+        with open(f"{output_path}/{val_filename}", 'w') as f:
+            json.dump(val_loss_dict, f, indent=4)
+
+def plot_training_validation_loss(train_loss_dict, val_loss_dict, title="Training and Validation Loss", save=False, output_path=None):
+    """
+    Plot training and validation loss on the same graph with journal-style formatting.
+
+    Parameters:
+    train_loss_dict (dict): Dictionary with epochs as keys and training loss as values.
+    val_loss_dict (dict): Dictionary with epochs as keys and validation loss as values.
+    title (str): Title of the plot.
+    """
+    plt.figure(figsize=(10, 6))
+    
+    epochs = list(train_loss_dict.keys())
+    train_losses = list(train_loss_dict.values())
+    val_losses = list(val_loss_dict.values())
+    
+    plt.plot(epochs, train_losses, 'black', label='Training Loss', linewidth=2)
+    plt.plot(epochs, val_losses, 'orange', label='Validation Loss', linewidth=2)
+    
+    plt.title(title, fontsize=16, fontweight='bold', pad=20)
+    plt.xlabel('Epoch', fontsize=12)
+    plt.ylabel('Loss', fontsize=12)
+    
+    plt.gca().spines['top'].set_visible(False)
+    plt.gca().spines['right'].set_visible(False)
+    plt.legend(fontsize=10)
+    
+    plt.tick_params(axis='both', which='major', labelsize=10, direction='out', length=6, width=1)
+    
+    x_min, x_max = plt.xlim()
+    y_min, y_max = plt.ylim()
+    plt.xlim(x_min, x_max + (x_max - x_min) * 0.02)
+    plt.ylim(y_min, y_max + (y_max - y_min) * 0.02)
+    
+    plt.gca().xaxis.set_major_locator(plt.MaxNLocator(nbins=6, prune=None))
+    plt.gca().yaxis.set_major_locator(plt.MaxNLocator(nbins=6, prune=None))
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.tight_layout()
+    
+    if save:
+        plt.savefig(f"{output_path}/training_validation_loss_plot.png")
+
+        # Save the dictionary to a JSON file
+        with open(f"{output_path}/training_loss.json", 'w') as f:
+            json.dump(train_loss_dict, f, indent=4)
+
+        with open(f"{output_path}/validation_loss.json", 'w') as f:
+            json.dump(val_loss_dict, f, indent=4)
+
+# 

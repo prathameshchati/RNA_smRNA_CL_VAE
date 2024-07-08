@@ -1,9 +1,9 @@
 inputs:
-  data: ../smRNA/TCGA_Data/adata_objects/rnaseq_adata_object_form.h5ad
-  model_name: rna_vae
+  data: ../smRNA/TCGA_Data/adata_objects/smrna_adata_object_form.h5ad
+  model_name: smrna_vae
   output_dir: Models
 preprocessing:
-  filter_genes_threshold: 0.8 
+  filter_genes_threshold: 0.5 
   norm_per_sample: True
   log: True
   isolate_top: True
@@ -11,7 +11,7 @@ preprocessing:
 model:
   hidden_dims: [128]
   latent_dim: 12
-  epochs: 600
+  epochs: 400
   validation_split: 0.2
   test_split: 0.1
   batch_size: 32
