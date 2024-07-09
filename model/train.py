@@ -20,7 +20,8 @@ from utils import load_config, parse_config, print_config, block_timer
 from _logger import set_log_file, console_print, save_log, save_model_architecture
 from preprocessing import preprocess_adata
 from unimodal_vae import get_X_matrix, split_dataset, modded_vae, train_vae, validate_vae, recon_corr, calculate_mae_list, \
-                         select_and_plot_samples, plot_journal_histogram, plot_and_save_loss_wt_val, plot_training_validation_loss
+                         select_and_plot_samples, plot_journal_histogram, plot_and_save_loss_wt_val, plot_training_validation_loss, \
+                         plot_four_histograms
 
 
 #### REFORMAT ALL PRINT STATEMENTS FOR LOGGING ####
@@ -153,12 +154,14 @@ def main():
         print('\n')
 
         print("Making error distribution plots...")
-        plot_journal_histogram(ccc_list, "Lin's CCC Distribution", bins='auto', color='#4c72b0', figsize=(8, 6), save=True, output_path=output_path, filename='ccc_test_recons_hist.png')
-        plot_journal_histogram(pear_corr_list, "Pearson Corr. Distribution", bins='auto', color='#4c72b0', figsize=(8, 6), save=True, output_path=output_path, filename='pearson_test_recons_hist.png')
-        plot_journal_histogram(spear_corr_list, "Spearman Corr. Distribution", bins='auto', color='#4c72b0', figsize=(8, 6), save=True, output_path=output_path, filename='spearman_test_recons_hist.png')
-        plot_journal_histogram(mae_list, "MAE Distribution", bins='auto', color='#4c72b0', figsize=(8, 6), save=True, output_path=output_path, filename='mae_test_recons_hist.png')
-
-
+        # plot_journal_histogram(ccc_list, "Lin's CCC Distribution", bins='auto', color='#4c72b0', figsize=(8, 6), save=True, output_path=output_path, filename='ccc_test_recons_hist.png')
+        # plot_journal_histogram(pear_corr_list, "Pearson Corr. Distribution", bins='auto', color='#4c72b0', figsize=(8, 6), save=True, output_path=output_path, filename='pearson_test_recons_hist.png')
+        # plot_journal_histogram(spear_corr_list, "Spearman Corr. Distribution", bins='auto', color='#4c72b0', figsize=(8, 6), save=True, output_path=output_path, filename='spearman_test_recons_hist.png')
+        # plot_journal_histogram(mae_list, "MAE Distribution", bins='auto', color='#4c72b0', figsize=(8, 6), save=True, output_path=output_path, filename='mae_test_recons_hist.png')
+        data_lists = [mae_list, ccc_list, spear_corr_list, pear_corr_list]
+        titles = ["MAE Distribution", "Lin's CCC Distribution", "Spearman Corr. Distribution", "Pearson Corr. Distribution"]
+        plot_four_histograms(data_lists, titles, save=True, output_path="Model", filename="error_metric_distribution_plots.png")
+        
     # save console outs
     save_log()
 

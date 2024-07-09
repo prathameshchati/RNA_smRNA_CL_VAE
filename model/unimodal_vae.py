@@ -9,6 +9,9 @@ from torch import nn
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 import json
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.figure import Figure
+
 
 # load data
 def get_X_matrix(adata, scale_data=False):
@@ -545,6 +548,66 @@ def plot_and_save_loss_wt_val(loss_dict, val_loss_dict, plot_filename, dict_file
 
         with open(f"{output_path}/{val_filename}", 'w') as f:
             json.dump(val_loss_dict, f, indent=4)
+
+
+def plot_four_histograms(data_lists, titles, bins='auto', color='#4c72b0', figsize=(25, 5), save=False, output_path=None, filename=None):
+    """
+    Plot four histograms in a 1x4 grid and save the result.
+
+    Parameters:
+    data_lists (list): List containing four data lists to plot
+    titles (list): List of four titles for each histogram
+    output_filenames (list): List of four output filenames for individual plots
+    output_path (str): Directory to save the output files
+    bins (int or str): Number of bins for histograms (default: 'auto')
+    color (str): Color of the histogram bars (default: '#4c72b0')
+    figsize (tuple): Figure size (width, height) in inches (default: (20, 5))
+    """
+    fig, axes = plt.subplots(1, 4, figsize=figsize)
+    fig.subplots_adjust(wspace=0.3)
+
+    for i, (data, title) in enumerate(zip(data_lists, titles)):
+        ax = axes[i]
+        
+        sns.histplot(data, bins=bins, color=color, kde=True, ax=ax)
+        
+        ax.set_title(title, fontsize=24, fontweight='bold', pad=10)
+        # ax.set_xlabel('Value', fontsize=10)
+        ax.set_ylabel('', fontsize=10)
+        
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        
+        ax.tick_params(axis='both', which='major', labelsize=20, direction='out', length=4, width=1)
+        
+        x_min, x_max = ax.get_xlim()
+        y_min, y_max = ax.get_ylim()
+        ax.set_xlim(x_min, x_max + (x_max - x_min) * 0.02)
+        ax.set_ylim(y_min, y_max + (y_max - y_min) * 0.02)
+        
+        ax.xaxis.set_major_locator(plt.MaxNLocator(nbins=5, prune=None))
+        ax.yaxis.set_major_locator(plt.MaxNLocator(nbins=5, prune=None))
+        
+        ax.grid(axis='y', linestyle='--', alpha=0.7)
+        
+        individual_fig = Figure(figsize=(8, 6))
+        canvas = FigureCanvas(individual_fig)
+        individual_ax = individual_fig.add_subplot(111)
+        
+        sns.histplot(data, bins=bins, color=color, kde=True, ax=individual_ax)
+        individual_ax.set_title(title, fontsize=24, fontweight='bold', pad=20)
+        # individual_ax.set_xlabel('Value', fontsize=12)
+        # individual_ax.set_ylabel('Frequency', fontsize=12)
+        individual_ax.spines['top'].set_visible(False)
+        individual_ax.spines['right'].set_visible(False)
+        individual_ax.tick_params(axis='both', which='major', labelsize=20, direction='out', length=6, width=1)
+        individual_ax.grid(axis='y', linestyle='--', alpha=0.7)
+        
+
+    plt.tight_layout()
+    if save:    
+        fig.savefig(os.path.join(output_path, filename), dpi=300, bbox_inches='tight')
+
 
 def plot_training_validation_loss(train_loss_dict, val_loss_dict, title="Training and Validation Loss", save=False, output_path=None):
     """
